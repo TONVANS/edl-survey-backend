@@ -45,3 +45,8 @@ edl_survey_backend.postman_collection.json
 province.json
 district.json
 village.json
+
+# Docker files
+
+docker-compose.yml
+Dockerfile
