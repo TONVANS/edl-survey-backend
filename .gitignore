@@ -1,0 +1,47 @@
+# Compiled output
+/dist
+/node_modules
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Tests
+/coverage
+/.nyc_output
+
+# IDEs and Editors
+/.idea
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# Environment Variables
+.env
+.env.*
+!.env.example
+
+# Prisma
+/generated/prisma
+*.db
+*.db-journal
+
+# Project specific
+document.md
+Guideline_frontend.md
+edl_survey_backend.postman_collection.json
+province.json
+district.json
+village.json

@@ -1,0 +1,239 @@
+/* STREAMING_CHUNK:Configuring database connection */
+generator client {
+provider = "prisma-client-js"
+}
+
+datasource db {
+provider = "postgresql"
+}
+
+/* STREAMING_CHUNK:Defining Enums for strict data types */
+// ------------------------------------------------------
+// ENUMS (ປະເພດຂໍ້ມູນຄົງທີ່)
+// ------------------------------------------------------
+
+// ປະເພດສິດທິການເຂົ້າເຖິງຂອງ Admin
+enum Role {
+SUPER_ADMIN     // ສາມາດເຫັນ ແລະ ຈັດການໄດ້ທຸກຢ່າງ
+REGION_ADMIN    // ເຫັນຂໍ້ມູນສະເພາະແຂວງທີ່ຂຶ້ນກັບພາກຂອງຕົນເອງ
+PROVINCE_ADMIN  // ເຫັນຂໍ້ມູນສະເພາະແຂວງຂອງຕົນເອງ
+}
+
+// ປະເພດຂອງຄຳຖາມໃນແບບສອບຖາມ
+enum QuestionType {
+RATING          // ໃຫ້ຄະແນນ (ເຊັ່ນ 1-5 ດາວ)
+TEXT            // ພິມຂໍ້ຄວາມອະທິບາຍ
+SINGLE_CHOICE   // ເລືອກໄດ້ຂໍ້ດຽວ (Radio)
+MULTIPLE_CHOICE // ເລືອກໄດ້ຫຼາຍຂໍ້ (Checkbox)
+}
+// ປະເພດຜູ້ຊົມໃຊ້ໄຟຟ້າ (ສາມາດປັບປ່ຽນ ຫຼື ໃຊ້ເປັນ Table ແຍກກໍໄດ້)
+model CustomerType {
+id          String           @id @default(uuid())
+name        String           @unique // ເຊັ່ນ: RESIDENTIAL, COMMERCIAL
+description String?          // ຄຳອະທິບາຍ (ທີ່ຢູ່ອາໄສ, ທຸລະກິດການຄ້າ)
+responses   SurveyResponse[]
+
+createdAt   DateTime         @default(now())
+updatedAt   DateTime         @updatedAt
+}
+
+/* STREAMING_CHUNK:Structuring Geographic data models */
+// ------------------------------------------------------
+// GEOGRAPHY MODELS (ຂໍ້ມູນທີ່ຕັ້ງ ພາກ, ແຂວງ, ເມືອງ, ບ້ານ)
+// ------------------------------------------------------
+
+model Region {
+id        String     @id @default(uuid())
+name      String     // ເຊັ່ນ: ພາກເໜືອ, ພາກກາງ, ພາກໃຕ້
+
+provinces Province[] // 1 ພາກ ມີຫຼາຍແຂວງ
+users     User[]     // ສຳລັບ Region Admin ທີ່ຄຸ້ມຄອງພາກນີ້
+
+createdAt DateTime   @default(now())
+updatedAt DateTime   @updatedAt
+}
+
+model Province {
+id        String     @id @default(uuid())
+name      String     // ຊື່ແຂວງ
+
+regionId  String
+region    Region     @relation(fields: [regionId], references: [id])
+
+districts District[]
+users     User[]     // ສຳລັບ Province Admin ທີ່ຄຸ້ມຄອງແຂວງນີ້
+responses SurveyResponse[] // ຂໍ້ມູນການຕອບແບບສອບຖາມຂອງແຂວງນີ້
+
+createdAt DateTime   @default(now())
+updatedAt DateTime   @updatedAt
+}
+
+model District {
+id         String    @id @default(uuid())
+name       String    // ຊື່ເມືອງ
+
+provinceId String
+province   Province  @relation(fields: [provinceId], references: [id])
+
+villages   Village[]
+responses  SurveyResponse[]
+
+createdAt  DateTime  @default(now())
+updatedAt  DateTime  @updatedAt
+}
+
+model Village {
+id         String    @id @default(uuid())
+name       String    // ຊື່ບ້ານ
+
+districtId String
+district   District  @relation(fields: [districtId], references: [id])
+
+responses  SurveyResponse[]
+
+createdAt  DateTime  @default(now())
+updatedAt  DateTime  @updatedAt
+}
+
+/* STREAMING_CHUNK:Creating User & Authentication model */
+// ------------------------------------------------------
+// USER MODEL (ສຳລັບ Admin ເຂົ້າໃຊ້ລະບົບ)
+// ------------------------------------------------------
+model User {
+id         String    @id @default(uuid())
+username   String    @unique
+email      String    @unique
+password   String
+name       String?   // ເພີ່ມຊື່ຜູ້ໃຊ້
+role       Role      @default(PROVINCE_ADMIN)
+
+// ຖ້າເປັນ Region Admin ຕ້ອງມີ regionId
+regionId   String?
+region     Region?   @relation(fields: [regionId], references: [id])
+
+// ຖ້າເປັນ Province Admin ຕ້ອງມີ provinceId
+provinceId String?
+province   Province? @relation(fields: [provinceId], references: [id])
+
+isActive   Boolean   @default(true)
+createdAt  DateTime  @default(now())
+updatedAt  DateTime  @updatedAt
+}
+
+/* STREAMING_CHUNK:Designing Survey core structure */
+// ------------------------------------------------------
+// SURVEY STRUCTURE (ໂຄງສ້າງແບບສອບຖາມ)
+// ------------------------------------------------------
+
+model Survey {
+id          String          @id @default(uuid())
+title       String          // ຫົວຂໍ້ການສຳຫຼວດ
+description String?         // ຄຳອະທິບາຍເພີ່ມເຕີມ
+isActive    Boolean         @default(true) // ປິດ-ເປີດ ການຮັບຂໍ້ມູນ
+
+sections    SurveySection[]
+responses   SurveyResponse[]
+
+createdAt   DateTime        @default(now())
+updatedAt   DateTime        @updatedAt
+}
+
+model SurveySection {
+id          String     @id @default(uuid())
+surveyId    String
+survey      Survey     @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+
+title       String     // ຊື່ພາກສ່ວນ (ເຊັ່ນ: ພາກທີ 1 ຂໍ້ມູນທົ່ວໄປ, ພາກທີ 2 ຄວາມພຶງພໍໃຈ)
+description String?
+order       Int        // ລຳດັບການສະແດງຜົນຂອງ Section
+
+questions   Question[]
+}
+
+model Question {
+id          String           @id @default(uuid())
+sectionId   String
+section     SurveySection    @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+text        String           // ຄຳຖາມ
+type        QuestionType     // ປະເພດຄຳຖາມ (Rating, Text, Single, Multiple)
+isRequired  Boolean          @default(true) // ຈຳເປັນຕ້ອງຕອບຫຼືບໍ່
+order       Int              // ລຳດັບຄຳຖາມ
+
+options     QuestionOption[] // ຕົວເລືອກຄຳຕອບ (ສຳລັບ Single / Multiple Choice)
+answers     Answer[]         // ຄຳຕອບທີ່ User ຕອບເຂົ້າມາ
+}
+
+// ປະເພດສຳລັບເລືອກ
+model QuestionOption {
+id          String         @id @default(uuid())
+questionId  String
+question    Question       @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+text        String         // ຂໍ້ຄວາມຕົວເລືອກ (ເຊັ່ນ: ດີຫຼາຍ, ປານກາງ)
+value       String?        // ຄ່າຂອງຕົວເລືອກ (ຖ້າມີ)
+order       Int            // ລຳດັບຕົວເລືອກ
+
+answers     AnswerOption[] // ເກັບຂໍ້ມູນວ່າ Option ນີ້ຖືກເລືອກໃນ Answer ໃດແດ່
+}
+
+/* STREAMING_CHUNK:Building Survey Submission models */
+// ------------------------------------------------------
+// SURVEY RESPONSES (ການເກັບກຳຜົນຕອບຈາກຜູ້ໃຊ້ທົ່ວໄປ)
+// ------------------------------------------------------
+
+model SurveyResponse {
+id             String       @id @default(uuid())
+surveyId       String
+survey         Survey       @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+
+// ຂໍ້ມູນຜູ້ຕອບ (ຜູ້ໃຊ້ທົ່ວໄປບໍ່ມີ User Account ຈຶ່ງເກັບເປັນ Text)
+customerNumber String       // ເລກຜູ້ຊົມໃຊ້ໄຟຟ້າ
+customerTypeId String
+customerType   CustomerType @relation(fields: [customerTypeId], references: [id])
+
+// ເພີ່ມຂໍ້ມູນຈຳນວນໝໍ້ແປງ ແລະ ໝໍ້ໄຟ
+monoPhaseMeterCount  Int    @default(0) // Mono 1-Phase 2-Wire
+threePhaseMeterCount Int    @default(0) // AT 3-Phase 4-Wire
+transformer100kVA    Int    @default(0) // 100 kVA Transformers
+
+// ສະຖານທີ່ (ຜູກ relation ເພື່ອຄວາມງ່າຍໃນການ Filter Dashboard ສຳລັບແຕ່ລະ Role)
+provinceId     String
+province       Province     @relation(fields: [provinceId], references: [id])
+
+districtId     String
+district       District     @relation(fields: [districtId], references: [id])
+
+villageId      String
+village        Village      @relation(fields: [villageId], references: [id])
+
+answers        Answer[]
+submittedAt    DateTime     @default(now())
+}
+
+model Answer {
+id          String           @id @default(uuid())
+responseId  String
+response    SurveyResponse   @relation(fields: [responseId], references: [id], onDelete: Cascade)
+
+questionId  String
+question    Question         @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+// ຄ່າທີ່ເກັບຈະຂຶ້ນກັບ ປະເພດຄຳຖາມ (QuestionType)
+textValue   String?          // ໃຊ້ສຳລັບ QuestionType.TEXT
+ratingValue Int?             // ໃຊ້ສຳລັບ QuestionType.RATING (ເຊັ່ນ 1 ເຖິງ 5)
+
+// ໃຊ້ສຳລັບ QuestionType.SINGLE_CHOICE ແລະ MULTIPLE_CHOICE
+selectedOptions AnswerOption[]
+}
+
+// Table ກາງສຳລັບການເລືອກ Multiple Choice / Single Choice ທີ່ Link ກັບ QuestionOption
+model AnswerOption {
+id          String         @id @default(uuid())
+
+answerId    String
+answer      Answer         @relation(fields: [answerId], references: [id], onDelete: Cascade)
+
+optionId    String
+option      QuestionOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+}
