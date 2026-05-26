@@ -18,6 +18,8 @@ import { QuestionOptionsModule } from './question-options/question-options.modul
 import { SurveyResponsesModule } from './survey-responses/survey-responses.module';
 import { AnswersModule } from './answers/answers.module';
 import { CustomerTypesModule } from './customer-types/customer-types.module';
+import { ReportsModule } from './reports/reports.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
@@ -42,6 +44,8 @@ import { RolesGuard } from './auth/guards/roles.guard';
     SurveyResponsesModule,
     AnswersModule,
     CustomerTypesModule,
+    ReportsModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [

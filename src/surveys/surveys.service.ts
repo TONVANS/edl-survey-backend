@@ -98,9 +98,14 @@ export class SurveysService {
     };
   }
 
-  async findActive() {
+  async findActive(id?: string) {
+    const where: Prisma.SurveyWhereInput = { isActive: true };
+    if (id) {
+      where.id = id;
+    }
+
     return this.prisma.survey.findFirst({
-      where: { isActive: true },
+      where,
       include: {
         sections: {
           orderBy: { order: 'asc' },

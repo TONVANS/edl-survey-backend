@@ -36,6 +36,13 @@ describe('Surveys (e2e)', () => {
       });
   });
 
+  it('/v1/surveys/active (GET) with surveyId should filter by ID', () => {
+    const randomUuid = '00000000-0000-0000-0000-000000000000';
+    return request(app.getHttpServer() as string)
+      .get(`/v1/surveys/active?surveyId=${randomUuid}`)
+      .expect(200);
+  });
+
   it('/v1/surveys (GET) should be protected', () => {
     return request(app.getHttpServer() as string)
       .get('/v1/surveys')

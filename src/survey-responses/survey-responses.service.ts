@@ -68,7 +68,16 @@ export class SurveyResponsesService {
     if (villageId) where.villageId = villageId;
     if (customerType) where.customerTypeId = customerType;
     if (customerNumber) {
-      where.customerNumber = { contains: customerNumber, mode: 'insensitive' };
+      where.customerNumber = customerNumber;
+    }
+    if (query.customerName) {
+      where.customerName = { contains: query.customerName, mode: 'insensitive' };
+    }
+    if (query.customerPhoneNumber) {
+      where.customerPhoneNumber = {
+        contains: query.customerPhoneNumber,
+        mode: 'insensitive',
+      };
     }
 
     // Date range filtering

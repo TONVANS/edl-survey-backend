@@ -33,8 +33,8 @@ export class SurveysController {
 
   @Public()
   @Get('active')
-  findActive() {
-    return this.surveysService.findActive();
+  findActive(@Query('surveyId') surveyId?: string) {
+    return this.surveysService.findActive(surveyId);
   }
 
   @Get(':id')
