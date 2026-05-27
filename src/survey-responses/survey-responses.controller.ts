@@ -41,9 +41,11 @@ export class SurveyResponsesController {
 
   @Roles(Role.SUPER_ADMIN, Role.REGION_ADMIN, Role.PROVINCE_ADMIN)
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    // In a real app, also apply data visibility checks in findOne
-    return this.surveyResponsesService.findOne(id);
+  findOne(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.surveyResponsesService.findOne(id, user);
   }
 
   @Roles(Role.SUPER_ADMIN)

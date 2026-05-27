@@ -16,6 +16,8 @@ import { CustomerTypeAnalysisQueryDto } from "./dto/customer-type-analysis-query
 import { CustomerTypeAnalysisResponseDto } from "./dto/customer-type-analysis-response.dto";
 import { QuestionDetailQueryDto } from "./dto/question-detail-query.dto";
 import { QuestionDetailResponseDto } from "./dto/question-detail-response.dto";
+import { SectionGraphQueryDto } from "./dto/section-graph-query.dto";
+import { SectionGraphResponseDto } from "./dto/section-graph-response.dto";
 import { ExportExcelQueryDto } from "./dto/export-excel-query.dto";
 import { Roles } from "../auth/decorators/roles.decorator";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
@@ -108,6 +110,25 @@ export class ReportsController {
     @Query() query: QuestionDetailQueryDto,
   ): Promise<QuestionDetailResponseDto> {
     return this.reportsService.getQuestionDetail(user, query);
+  }
+
+  @Get("section-graph")
+  @Roles(Role.SUPER_ADMIN, Role.REGION_ADMIN, Role.PROVINCE_ADMIN)
+  @ApiOperation({
+    summary: "Get Section Graph Data",
+    description:
+      "Aggregates data for RATING questions within a specific survey section for chart display. Scoped by user role and geographic filters.",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "The section graph data was successfully compiled.",
+    type: SectionGraphResponseDto,
+  })
+  async getSectionGraphData(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: SectionGraphQueryDto,
+  ): Promise<SectionGraphResponseDto> {
+    return this.reportsService.getSectionGraphData(user, query);
   }
 
   @Get("export-excel")

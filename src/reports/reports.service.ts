@@ -17,10 +17,118 @@ import {
 } from './dto/customer-type-analysis-response.dto';
 import { QuestionDetailQueryDto } from "./dto/question-detail-query.dto";
 import { QuestionDetailResponseDto, QuestionDetailSectionDto, QuestionDetailItemDto } from "./dto/question-detail-response.dto";
+import { SectionGraphQueryDto } from "./dto/section-graph-query.dto";
+import { SectionGraphResponseDto, SectionGraphItemDto } from "./dto/section-graph-response.dto";
 
 @Injectable()
 export class ReportsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async getSectionGraphData(
+    user: AuthenticatedUser,
+    query: SectionGraphQueryDto,
+  ): Promise<SectionGraphResponseDto> {
+    const { surveyId, sectionId, provinceId, districtId, villageId } = query;
+
+    // 1. Authorization & Base Filter Construction
+    const where: Prisma.SurveyResponseWhereInput = { surveyId };
+
+    if (user.role === Role.SUPER_ADMIN) {
+      if (provinceId) where.provinceId = provinceId;
+    } else if (user.role === Role.REGION_ADMIN) {
+      where.province = { regionId: user.regionId };
+      if (provinceId) {
+        // Verify if provinceId belongs to this region
+        const province = await this.prisma.province.findFirst({
+          where: { id: provinceId, regionId: user.regionId },
+        });
+        if (province) {
+          where.provinceId = provinceId;
+        }
+      }
+    } else if (user.role === Role.PROVINCE_ADMIN) {
+      where.provinceId = user.provinceId;
+    }
+
+    if (districtId) where.districtId = districtId;
+    if (villageId) where.villageId = villageId;
+
+    // 2. Data Fetching & Aggregation
+    // Step 2a: Fetch the target SurveySection and its RATING questions
+    const section = await this.prisma.surveySection.findFirst({
+      where: { id: sectionId, surveyId },
+      include: {
+        questions: {
+          where: { type: QuestionType.RATING },
+          orderBy: { order: 'asc' },
+        },
+      },
+    });
+
+    if (!section) {
+      throw new BadRequestException("Section not found or does not belong to the specified survey.");
+    }
+
+    // Step 2b: Count total unique responses in this scope
+    const totalResponses = await this.prisma.surveyResponse.count({ where });
+
+    if (totalResponses === 0) {
+      return {
+        sectionTitle: section.title,
+        totalResponses: 0,
+        chartData: section.questions.map((q) => ({
+          questionId: q.id,
+          questionText: q.text,
+          averageScore: 0,
+          answerCount: 0,
+        })),
+      };
+    }
+
+    // Step 2c: Aggregate Answers for the questions in this section
+    const questionIds = section.questions.map((q) => q.id);
+    const answerStats = await this.prisma.answer.groupBy({
+      by: ['questionId'],
+      where: {
+        questionId: { in: questionIds },
+        response: where,
+        ratingValue: { not: null },
+      },
+      _sum: { ratingValue: true },
+      _count: { ratingValue: true },
+    });
+
+    const statsMap = new Map(
+      answerStats.map((stat) => [
+        stat.questionId,
+        {
+          sum: stat._sum.ratingValue || 0,
+          count: stat._count.ratingValue || 0,
+        },
+      ]),
+    );
+
+    // 3. Calculation & Mapping
+    const chartData: SectionGraphItemDto[] = section.questions.map((q) => {
+      const stats = statsMap.get(q.id);
+      const averageScore = stats && stats.count > 0
+        ? Number((stats.sum / stats.count).toFixed(2))
+        : 0;
+
+      return {
+        questionId: q.id,
+        questionText: q.text,
+        averageScore,
+        answerCount: stats?.count || 0,
+      };
+    });
+
+    return {
+      sectionTitle: section.title,
+      totalResponses,
+      chartData,
+    };
+  }
 
   async getOverallSummary(
     user: AuthenticatedUser,

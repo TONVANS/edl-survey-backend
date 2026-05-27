@@ -54,45 +54,51 @@ updatedAt DateTime   @updatedAt
 }
 
 model Province {
-id        String     @id @default(uuid())
-name      String     // ຊື່ແຂວງ
+  id        String     @id @default(uuid())
+  name      String     // ຊື່ແຂວງ
 
-regionId  String
-region    Region     @relation(fields: [regionId], references: [id])
+  regionId  String
+  region    Region     @relation(fields: [regionId], references: [id])
 
-districts District[]
-users     User[]     // ສຳລັບ Province Admin ທີ່ຄຸ້ມຄອງແຂວງນີ້
-responses SurveyResponse[] // ຂໍ້ມູນການຕອບແບບສອບຖາມຂອງແຂວງນີ້
+  districts District[]
+  users     User[]     // ສຳລັບ Province Admin ທີ່ຄຸ້ມຄອງແຂວງນີ້
+  responses SurveyResponse[] // ຂໍ້ມູນການຕອບແບບສອບຖາມຂອງແຂວງນີ້
 
-createdAt DateTime   @default(now())
-updatedAt DateTime   @updatedAt
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([regionId])
 }
 
 model District {
-id         String    @id @default(uuid())
-name       String    // ຊື່ເມືອງ
+  id         String    @id @default(uuid())
+  name       String    // ຊື່ເມືອງ
 
-provinceId String
-province   Province  @relation(fields: [provinceId], references: [id])
+  provinceId String
+  province   Province  @relation(fields: [provinceId], references: [id])
 
-villages   Village[]
-responses  SurveyResponse[]
+  villages   Village[]
+  responses  SurveyResponse[]
 
-createdAt  DateTime  @default(now())
-updatedAt  DateTime  @updatedAt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([provinceId])
 }
 
 model Village {
-id         String    @id @default(uuid())
-name       String    // ຊື່ບ້ານ
+  id         String    @id @default(uuid())
+  name       String    // ຊື່ບ້ານ
 
-districtId String
-district   District  @relation(fields: [districtId], references: [id])
+  districtId String
+  district   District  @relation(fields: [districtId], references: [id])
 
-responses  SurveyResponse[]
+  responses  SurveyResponse[]
 
-createdAt  DateTime  @default(now())
-updatedAt  DateTime  @updatedAt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([districtId])
 }
 
 /* STREAMING_CHUNK:Creating User & Authentication model */
@@ -118,6 +124,9 @@ province   Province? @relation(fields: [provinceId], references: [id])
 isActive   Boolean   @default(true)
 createdAt  DateTime  @default(now())
 updatedAt  DateTime  @updatedAt
+
+  @@index([regionId])
+  @@index([provinceId])
 }
 
 /* STREAMING_CHUNK:Designing Survey core structure */
@@ -148,6 +157,8 @@ description String?
 order       Int        // ລຳດັບການສະແດງຜົນຂອງ Section
 
 questions   Question[]
+
+  @@index([surveyId])
 }
 
 model Question {
@@ -162,6 +173,8 @@ order       Int              // ລຳດັບຄຳຖາມ
 
 options     QuestionOption[] // ຕົວເລືອກຄຳຕອບ (ສຳລັບ Single / Multiple Choice)
 answers     Answer[]         // ຄຳຕອບທີ່ User ຕອບເຂົ້າມາ
+
+  @@index([sectionId])
 }
 
 // ປະເພດສຳລັບເລືອກ
@@ -175,6 +188,8 @@ value       String?        // ຄ່າຂອງຕົວເລືອກ (ຖ້
 order       Int            // ລຳດັບຕົວເລືອກ
 
 answers     AnswerOption[] // ເກັບຂໍ້ມູນວ່າ Option ນີ້ຖືກເລືອກໃນ Answer ໃດແດ່
+
+  @@index([questionId])
 }
 
 /* STREAMING_CHUNK:Building Survey Submission models */
@@ -183,36 +198,42 @@ answers     AnswerOption[] // ເກັບຂໍ້ມູນວ່າ Option ນ
 // ------------------------------------------------------
 
 model SurveyResponse {
-id             String       @id @default(uuid())
-surveyId       String
-survey         Survey       @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  id             String       @id @default(uuid())
+  surveyId       String
+  survey         Survey       @relation(fields: [surveyId], references: [id], onDelete: Cascade)
 
-// ຂໍ້ມູນຜູ້ຕອບ (ຜູ້ໃຊ້ທົ່ວໄປບໍ່ມີ User Account ຈຶ່ງເກັບເປັນ Text)
-customerNumber Int          // ເລກຜູ້ຊົມໃຊ້ໄຟຟ້າ
-customerName   String       // ຊື່ຜູ້ຕອບ
-customerPhoneNumber String? // ເບີໂທ (Optional)
-customerTypeId String
-customerType   CustomerType @relation(fields: [customerTypeId], references: [id])
+  // ຂໍ້ມູນຜູ້ຕອບ (ຜູ້ໃຊ້ທົ່ວໄປບໍ່ມີ User Account ຈຶ່ງເກັບເປັນ Text)
+  customerNumber Int          // ເລກຜູ້ຊົມໃຊ້ໄຟຟ້າ
+  customerName   String       // ຊື່ຜູ້ຕອບ
+  customerPhoneNumber String? // ເບີໂທ (Optional)
+  customerTypeId String
+  customerType   CustomerType @relation(fields: [customerTypeId], references: [id])
 
-// ເພີ່ມຂໍ້ມູນຈຳນວນໝໍ້ແປງ ແລະ ໝໍ້ໄຟ
-monoPhaseMeterCount  Int    @default(0) // Mono 1-Phase 2-Wire
-threePhaseMeterCount Int    @default(0) // AT 3-Phase 4-Wire
-transformer100kVA    Int    @default(0) // 100 kVA Transformers
+  // ເພີ່ມຂໍ້ມູນຈຳນວນໝໍ້ແປງ ແລະ ໝໍ້ໄຟ
+  monoPhaseMeterCount  Int    @default(0) // Mono 1-Phase 2-Wire
+  threePhaseMeterCount Int    @default(0) // AT 3-Phase 4-Wire
+  transformer100kVA    Int    @default(0) // 100 kVA Transformers
 
-// ສະຖານທີ່ (ຜູກ relation ເພື່ອຄວາມງ່າຍໃນການ Filter Dashboard ສຳລັບແຕ່ລະ Role)
-provinceId     String
-province       Province     @relation(fields: [provinceId], references: [id])
+  // ສະຖານທີ່ (ຜູກ relation ເພື່ອຄວາມງ່າຍໃນການ Filter Dashboard ສຳລັບແຕ່ລະ Role)
+  provinceId     String
+  province       Province     @relation(fields: [provinceId], references: [id])
 
-districtId     String
-district       District     @relation(fields: [districtId], references: [id])
+  districtId     String
+  district       District     @relation(fields: [districtId], references: [id])
 
-villageId      String
-village        Village      @relation(fields: [villageId], references: [id])
+  villageId      String
+  village        Village      @relation(fields: [villageId], references: [id])
 
-answers        Answer[]
-submittedAt    DateTime     @default(now())
+  answers        Answer[]
+  submittedAt    DateTime     @default(now())
+
+  @@unique([surveyId, customerNumber])
+  @@index([provinceId])
+  @@index([districtId])
+  @@index([villageId])
+  @@index([customerTypeId])
+  @@index([submittedAt])
 }
-
 model Answer {
 id          String           @id @default(uuid())
 responseId  String
@@ -227,6 +248,10 @@ ratingValue Int?             // ໃຊ້ສຳລັບ QuestionType.RATING (�
 
 // ໃຊ້ສຳລັບ QuestionType.SINGLE_CHOICE ແລະ MULTIPLE_CHOICE
 selectedOptions AnswerOption[]
+
+  @@index([responseId])
+  @@index([questionId])
+  @@index([ratingValue])
 }
 
 // Table ກາງສຳລັບການເລືອກ Multiple Choice / Single Choice ທີ່ Link ກັບ QuestionOption
@@ -238,4 +263,7 @@ answer      Answer         @relation(fields: [answerId], references: [id], onDel
 
 optionId    String
 option      QuestionOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@index([answerId])
+  @@index([optionId])
 }

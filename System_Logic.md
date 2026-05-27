@@ -80,15 +80,15 @@ The system has four roles. The User model handles authentication for Admins. All
 
 1. **Trigger:** Authenticated administrative users request the geographic breakdown (GET /v1/reports/geographic).
 2. **Dynamic Aggregation Level:**
-   - The system aggregates data based on the level parameter (egion, province, district, illage).
-   - For egion level, data is aggregated by grouping provinces and mapping them to their respective regions.
+egion, province, district, illage).
+egion level, data is aggregated by grouping provinces and mapping them to their respective regions.
 3. **Data Scoping:**
-   - SUPER_ADMIN: Can query any level and filter by any egionId or provinceId.
-   - REGION_ADMIN: Scoped to their egionId. Cannot query other regions.
+egionId or provinceId.
+egionId. Cannot query other regions.
    - PROVINCE_ADMIN: Scoped to their provinceId. Aggregation level is restricted to district or illage.
 4. **Calculations:**
    - **Total Responses**: Count of SurveyResponse records in the current period.
-   - **Average Rating**: Average of atingValue from Answer records linked to the scoped responses.
+atingValue from Answer records linked to the scoped responses.
    - **Response Growth**: Percentage comparison between the current period and a previous period of the same duration. Returns 
 ull if no previous data is available.
 
@@ -99,7 +99,7 @@ ull if no previous data is available.
 2. **Logic & Aggregations:**
    - **Data Scoping:** RBAC rules apply identically to other reports (SUPER_ADMIN sees all, REGION_ADMIN scoped to region, PROVINCE_ADMIN scoped to province).
    - **Meter/Transformer Totals**: Sums monoPhaseMeterCount, 	hreePhaseMeterCount, and 	ransformer100kVA grouped by customerTypeId.
-   - **Satisfaction Metrics**: Calculates verageRating and atingDistribution (1-5 stars) for each customer type.
+atingDistribution (1-5 stars) for each customer type.
    - **Left Join Behavior**: Fetches all existing CustomerType records. If a type has no responses in the current scope, it is returned with zero values instead of being omitted.
 3. **Sorting:** Results are sorted by 	otalResponses in descending order by default.
 
@@ -126,7 +126,7 @@ ull if no previous data is available.
 3. **Business Logic:**
    - **Delta Comparisons:** When \compareWithPreviousPeriod\ is enabled, the system calculates the percentage change in responses and raw difference in rating between the current month and the previous month.
    - **Geographic Coverage:** Tracks how many distinct provinces within the user's permissible scope have submitted at least one response compared to the total number of provinces in that scope.
-   - **Real-time Pulse:** Provides a \esponseToday\ metric tracking submissions since 00:00 UTC of the current day.
+esponseToday\ metric tracking submissions since 00:00 UTC of the current day.
 
 ### **3.8 Geographic Heatmap Dashboard**
 
@@ -164,19 +164,19 @@ ull if no previous data is available.
 4. **Calculations:**
    - **Section Average:** Unweighted average of all RATING questions within the section.
    - **Overall Average:** Unweighted average of all section averages.
-5. **Caching:** Implements a 60-second TTL cache scoped by role, scope ID, survey, dates, and comparison target.
+### 3.11 Role-scoped Filter Panel Endpoint
+... (rest of 3.11 content)
 
-### **3.11 Role-scoped Filter Panel Endpoint**
+### **3.12 Section Graph Data Aggregation**
 
-1. **Trigger:** Authenticated administrative users request filter options (GET /v1/dashboard/filter-options) on dashboard initialization or when changing parent geographical filters.
-2. **RBAC Dropdown Logic:**
-   - **Regions:** Only returned for SUPER_ADMIN.
-   - **Provinces:** Scoped to the user's assigned Region or Province.
-   - **Districts/Villages:** Fetched dynamically based on provinceId or districtId parameters, with strict validation ensuring users cannot bypass their scope.
-   - **Surveys & CustomerTypes:** Always returned for all roles.
-3. **Data Integrity:**
-   - **Cross-Scope Validation:** Prevents REGION_ADMIN or PROVINCE_ADMIN from accessing entities outside their assigned jurisdiction via query parameters (returns 403 Forbidden).
-   - **User Scope Metadata:** The response includes userScope, providing the frontend with the user's role and ID constraints to automatically set default filter values.
-4. **Optimization & Performance:**
-   - **Parallel Execution:** Queries for all independent metadata lists are executed concurrently via Promise.all.
-   - **Caching:** Implements a 5-minute (300s) TTL cache for filter metadata. The cache key is highly specific, incorporating role, scope ID, and parameters to maintain strict data isolation between users.
+1. **Trigger:** Authenticated administrative users request graph data for a specific survey section (GET /v1/reports/section-graph).
+2. **Dynamic RBAC Data Scoping:**
+   - **SUPER_ADMIN**: Scoped by optional geographic filters (`provinceId`, `districtId`, `villageId`).
+   - **REGION_ADMIN**: Automatically scoped to their `regionId`. If a `provinceId` is provided, it is validated against their region.
+   - **PROVINCE_ADMIN**: Strictly scoped to their `provinceId`.
+3. **Data Aggregation Logic:**
+   - **Targeting**: Only questions of type `RATING` within the specified `sectionId` are processed.
+   - **Metrics**: Calculates the `averageScore` and `answerCount` for each rating question.
+   - **Unique Scope**: Returns the `totalResponses` (unique survey submissions) that contribute to the current scoped view.
+4. **Return Structure**: Optimized for frontend charting libraries, providing question text and calculated averages rounded to 2 decimal places.
+
