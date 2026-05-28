@@ -148,6 +148,16 @@ export class ReportsController {
     @Query() query: ExportExcelQueryDto,
     @Res() res: express.Response,
   ): Promise<void> {
-    return this.exportService.exportToExcel(user, query, res);
+    try {
+      await this.exportService.exportToExcel(user, query, res);
+    } catch (error) {
+      // If headers have already been sent (partial write), we can only end the stream
+      if (res.headersSent) {
+        res.end();
+        return;
+      }
+      // Otherwise, propagate to NestJS exception filter
+      throw error;
+    }
   }
 }
