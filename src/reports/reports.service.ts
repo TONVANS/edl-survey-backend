@@ -1,3 +1,4 @@
+// src/reports/reports.service.ts
 import { Injectable, ForbiddenException, BadRequestException } from "@nestjs/common";
 import { Prisma, Role, QuestionType } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
@@ -54,12 +55,11 @@ export class ReportsService {
     if (villageId) where.villageId = villageId;
 
     // 2. Data Fetching & Aggregation
-    // Step 2a: Fetch the target SurveySection and its RATING questions
+    // Step 2a: Fetch the target SurveySection and its questions
     const section = await this.prisma.surveySection.findFirst({
       where: { id: sectionId, surveyId },
       include: {
         questions: {
-          where: { type: QuestionType.RATING },
           orderBy: { order: 'asc' },
         },
       },
@@ -92,10 +92,9 @@ export class ReportsService {
       where: {
         questionId: { in: questionIds },
         response: where,
-        ratingValue: { not: null },
       },
       _sum: { ratingValue: true },
-      _count: { ratingValue: true },
+      _count: { id: true, ratingValue: true },
     });
 
     const statsMap = new Map(
@@ -103,7 +102,8 @@ export class ReportsService {
         stat.questionId,
         {
           sum: stat._sum.ratingValue || 0,
-          count: stat._count.ratingValue || 0,
+          count: stat._count.id || 0,
+          ratingCount: stat._count.ratingValue || 0,
         },
       ]),
     );
@@ -111,8 +111,8 @@ export class ReportsService {
     // 3. Calculation & Mapping
     const chartData: SectionGraphItemDto[] = section.questions.map((q) => {
       const stats = statsMap.get(q.id);
-      const averageScore = stats && stats.count > 0
-        ? Number((stats.sum / stats.count).toFixed(2))
+      const averageScore = stats && stats.ratingCount > 0
+        ? Number((stats.sum / stats.ratingCount).toFixed(2))
         : 0;
 
       return {
@@ -410,37 +410,40 @@ export class ReportsService {
       },
     });
 
-    const ratingStats = await this.prisma.answer.groupBy({
-      by: ['ratingValue', 'response.customerTypeId'],
+    const ratingAnswers = await this.prisma.answer.findMany({
       where: {
         response: where,
         question: { type: QuestionType.RATING },
         ratingValue: { not: null },
       },
-      _count: { ratingValue: true },
-      _sum: { ratingValue: true },
-    } as any);
+      select: {
+        ratingValue: true,
+        response: {
+          select: {
+            customerTypeId: true,
+          },
+        },
+      },
+    });
 
     const statsMap = new Map(responseStats.map((s: any) => [s.customerTypeId, s]));
     
     const distributionMap = new Map<string, Record<string, number>>();
     const ratingSummaryMap = new Map<string, { sum: number; count: number }>();
 
-    ratingStats.forEach((stat: any) => {
-      const customerTypeId = stat.customerTypeId || stat.response?.customerTypeId;
-      if (!customerTypeId) return;
+    ratingAnswers.forEach((ans) => {
+      const customerTypeId = ans.response?.customerTypeId;
+      if (!customerTypeId || ans.ratingValue === null) return;
 
-      const ratingKey = stat.ratingValue.toString();
-      const count = stat._count.ratingValue;
-      const sum = stat._sum.ratingValue;
+      const ratingKey = ans.ratingValue.toString();
 
       const dist = distributionMap.get(customerTypeId) || { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
-      dist[ratingKey] = count;
+      dist[ratingKey] = (dist[ratingKey] || 0) + 1;
       distributionMap.set(customerTypeId, dist);
 
       const summary = ratingSummaryMap.get(customerTypeId) || { sum: 0, count: 0 };
-      summary.sum += sum;
-      summary.count += count;
+      summary.sum += ans.ratingValue;
+      summary.count += 1;
       ratingSummaryMap.set(customerTypeId, summary);
     });
 

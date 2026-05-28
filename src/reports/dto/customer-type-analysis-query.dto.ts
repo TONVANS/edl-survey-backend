@@ -1,3 +1,4 @@
+// src/reports/dto/customer-type-analysis-query.dto.ts
 import { ApiPropertyOptional } from "@nestjs/swagger";
 import { IsISO8601, IsOptional, IsUUID } from "class-validator";
 
