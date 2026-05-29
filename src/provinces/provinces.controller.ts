@@ -12,6 +12,7 @@ import { ProvincesService } from './provinces.service';
 import { CreateProvinceDto } from './dto/create-province.dto';
 import { UpdateProvinceDto } from './dto/update-province.dto';
 import { ProvinceQueryDto } from './dto/province-query.dto';
+import { Public } from '../auth/decorators/public.decorator';
 
 @Controller('provinces')
 export class ProvincesController {
@@ -22,6 +23,7 @@ export class ProvincesController {
     return this.provincesService.create(createProvinceDto);
   }
 
+  @Public()
   @Get()
   findAll(@Query() query: ProvinceQueryDto) {
     return this.provincesService.findAll(query);

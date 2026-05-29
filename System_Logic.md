@@ -33,7 +33,7 @@ The system allows the State Electricity Authority to collect customer satisfacti
 ### 3.1 Public User Submission (No Authentication Required)
 
 1. **Trigger:** User scans a QR code or clicks a link pointing to the active survey (GET /api/surveys/active). The endpoint can optionally take a `surveyId` query parameter (GET /api/surveys/active?surveyId=uuid) to fetch a specific survey ONLY if it is active.
-2. Form **Load:** The frontend loads the Survey, including nested SurveySection, Question, and QuestionOption where isActive = true. It also fetches available **CustomerTypes** (GET /api/customer-types).
+2. Form **Load:** The frontend loads the Survey, including nested SurveySection, Question, and QuestionOption where isActive = true. It also fetches available **CustomerTypes** (GET /api/customer-types) and cascading geographic data using the public endpoints (GET /api/provinces, GET /api/districts/by-province/:provinceId, GET /api/villages/by-district/:districtId).
 3. **Submission Payload:** The frontend sends a POST request containing:  
    * Customer Info: customerNumber (Int), customerName (String), customerPhoneNumber (Optional String), customerType (UUID of the selected CustomerType).  
    * Meter/Transformer Info: monoPhaseMeterCount, threePhaseMeterCount, transformer100kVA (All Int, default 0).

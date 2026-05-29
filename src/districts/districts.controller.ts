@@ -12,6 +12,7 @@ import { DistrictsService } from './districts.service';
 import { CreateDistrictDto } from './dto/create-district.dto';
 import { UpdateDistrictDto } from './dto/update-district.dto';
 import { DistrictQueryDto } from './dto/district-query.dto';
+import { Public } from '../auth/decorators/public.decorator';
 
 @Controller('districts')
 export class DistrictsController {
@@ -25,6 +26,12 @@ export class DistrictsController {
   @Get()
   findAll(@Query() query: DistrictQueryDto) {
     return this.districtsService.findAll(query);
+  }
+
+  @Public()
+  @Get('by-province/:provinceId')
+  findByProvinceId(@Param('provinceId') provinceId: string) {
+    return this.districtsService.findByProvinceId(provinceId);
   }
 
   @Get(':id')

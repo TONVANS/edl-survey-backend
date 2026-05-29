@@ -63,6 +63,13 @@ export class DistrictsService {
     });
   }
 
+  async findByProvinceId(provinceId: string) {
+    return this.prisma.district.findMany({
+      where: { provinceId },
+      orderBy: { name: 'asc' },
+    });
+  }
+
   async update(id: string, updateDistrictDto: UpdateDistrictDto) {
     return this.prisma.district.update({
       where: { id },

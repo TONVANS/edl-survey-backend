@@ -12,6 +12,7 @@ import { VillagesService } from './villages.service';
 import { CreateVillageDto } from './dto/create-village.dto';
 import { UpdateVillageDto } from './dto/update-village.dto';
 import { VillageQueryDto } from './dto/village-query.dto';
+import { Public } from '../auth/decorators/public.decorator';
 
 @Controller('villages')
 export class VillagesController {
@@ -25,6 +26,12 @@ export class VillagesController {
   @Get()
   findAll(@Query() query: VillageQueryDto) {
     return this.villagesService.findAll(query);
+  }
+
+  @Public()
+  @Get('by-district/:districtId')
+  findByDistrictId(@Param('districtId') districtId: string) {
+    return this.villagesService.findByDistrictId(districtId);
   }
 
   @Get(':id')

@@ -109,6 +109,13 @@ export class VillagesService {
     return village;
   }
 
+  async findByDistrictId(districtId: string) {
+    return this.prisma.village.findMany({
+      where: { districtId },
+      orderBy: { name: 'asc' },
+    });
+  }
+
   async update(id: string, updateVillageDto: UpdateVillageDto) {
     const village = await this.findOne(id);
 
