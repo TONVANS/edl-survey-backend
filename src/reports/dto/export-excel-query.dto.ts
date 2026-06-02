@@ -1,3 +1,4 @@
+// src/reports/dto/export-excel-query.dto.ts
 import { ApiPropertyOptional } from "@nestjs/swagger";
 import { IsOptional, IsString, IsUUID, IsISO8601 } from "class-validator";
 

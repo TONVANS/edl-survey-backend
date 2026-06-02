@@ -1,4 +1,4 @@
-// src/reports/export.service.ts
+// src/reports/export.service.ts — updated with section grouping headers
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { Prisma, Role, QuestionType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -24,7 +24,6 @@ export class ExportService {
     const where: Prisma.SurveyResponseWhereInput = {};
     if (surveyId) where.surveyId = surveyId;
 
-    // RBAC Scoping
     if (user.role === Role.SUPER_ADMIN) {
       if (provinceId) where.provinceId = provinceId;
     } else if (user.role === Role.REGION_ADMIN) {
@@ -49,18 +48,27 @@ export class ExportService {
       );
     }
 
-    // ── Fetch first batch to discover question columns ─────────────────────
-    // We need to know all questions upfront to build column headers.
-    // Pull distinct questions from the survey (ordered by section/question order).
-    const questions = surveyId
-      ? await this.prisma.question.findMany({
-          where: { section: { surveyId } },
-          orderBy: [{ section: { order: 'asc' } }, { order: 'asc' }],
-          select: { id: true, text: true, type: true },
+    // ── Fetch questions grouped by section ────────────────────────────────
+    // Include section info so we can render section-grouping headers.
+    const sections = surveyId
+      ? await this.prisma.surveySection.findMany({
+          where: { surveyId },
+          orderBy: { order: 'asc' },
+          select: {
+            id: true,
+            title: true,
+            questions: {
+              orderBy: { order: 'asc' },
+              select: { id: true, text: true, type: true },
+            },
+          },
         })
       : [];
 
-    // ── Build workbook ─────────────────────────────────────────────────────
+    // Flat list of questions (preserving section order) used for columns & answer mapping
+    const questions = sections.flatMap((s) => s.questions);
+
+    // ── Build workbook ────────────────────────────────────────────────────
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'EDL Survey System';
     workbook.created = new Date();
@@ -68,48 +76,141 @@ export class ExportService {
 
     const sheet = workbook.addWorksheet('Responses');
 
-    const headerStyle: Partial<ExcelJS.Style> = {
+    // ── Shared styles ─────────────────────────────────────────────────────
+    const staticHeaderStyle: Partial<ExcelJS.Style> = {
       font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3C3489' } },
+      alignment: { horizontal: 'center', vertical: 'middle', wrapText: true },
+      border: { bottom: { style: 'thin', color: { argb: 'FF2B2570' } } },
+    };
+
+    // Each section gets a slightly different shade so columns are visually grouped
+    const sectionShades = [
+      'FF1A5493', // section 1 — darker blue
+      'FF0B3D7A', // section 2 — even darker
+      'FF1B5E38', // section 3 — green tint
+      'FF7A3B00', // section 4 — amber tint
+    ];
+    const sectionBgColors = [
+      'FFBDD7EE', // section 1 header bg
+      'FF9DC3E6', // section 2 header bg
+      'FFA8D08D', // section 3 header bg
+      'FFFFD966', // section 4 header bg
+    ];
+
+    const sectionHeaderStyle = (index: number): Partial<ExcelJS.Style> => ({
+      font: {
+        bold: true,
+        color: { argb: index % 2 === 0 ? 'FF0C3D6B' : 'FF042C53' },
+        size: 10,
+      },
       fill: {
         type: 'pattern',
         pattern: 'solid',
-        fgColor: { argb: 'FF3C3489' },
+        fgColor: { argb: sectionBgColors[index % sectionBgColors.length] },
+      },
+      alignment: { horizontal: 'center', vertical: 'middle', wrapText: false },
+      border: { bottom: { style: 'thin', color: { argb: 'FF9DC3E6' } } },
+    });
+
+    const questionHeaderStyle = (index: number): Partial<ExcelJS.Style> => ({
+      font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 },
+      fill: {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: sectionShades[index % sectionShades.length] },
       },
       alignment: { horizontal: 'center', vertical: 'middle', wrapText: true },
-      border: {
-        bottom: { style: 'thin', color: { argb: 'FFCCCCCC' } },
-      },
-    };
+      border: { bottom: { style: 'thin', color: { argb: 'FFCCCCCC' } } },
+    });
 
-    // ── Static columns + dynamic question columns ──────────────────────────
+    // ── Define columns (no header — we write headers manually for 2-row effect) ──
+    const STATIC_COUNT = 11; // number of static columns
+
     const staticColumns: Partial<ExcelJS.Column>[] = [
-      { header: 'Customer Number', key: 'customerNumber', width: 20 },
-      { header: 'Customer Name', key: 'customerName', width: 30 },
-      { header: 'Phone', key: 'customerPhoneNumber', width: 20 },
-      { header: 'Customer Type', key: 'customerType', width: 20 },
-      { header: 'Province', key: 'province', width: 20 },
-      { header: 'District', key: 'district', width: 20 },
-      { header: 'Village', key: 'village', width: 20 },
-      { header: 'Mono-phase Meters', key: 'monoPhase', width: 20 },
-      { header: '3-phase Meters', key: 'threePhase', width: 20 },
-      { header: 'Transformers (100kVA)', key: 'transformer', width: 25 },
-      { header: 'Submitted At', key: 'submittedAt', width: 25 },
+      { key: 'customerNumber', width: 20 },
+      { key: 'customerName', width: 30 },
+      { key: 'customerPhoneNumber', width: 20 },
+      { key: 'customerType', width: 20 },
+      { key: 'province', width: 20 },
+      { key: 'district', width: 20 },
+      { key: 'village', width: 20 },
+      { key: 'monoPhase', width: 20 },
+      { key: 'threePhase', width: 20 },
+      { key: 'transformer', width: 25 },
+      { key: 'submittedAt', width: 25 },
     ];
 
     const questionColumns: Partial<ExcelJS.Column>[] = questions.map((q) => ({
-      header: q.text,
       key: `q_${q.id}`,
       width: 40,
     }));
 
     sheet.columns = [...staticColumns, ...questionColumns];
 
-    sheet.getRow(1).height = 22;
-    sheet.getRow(1).eachCell((cell) => {
-      cell.style = headerStyle;
+    // ── ROW 1: Section grouping header ────────────────────────────────────
+    const sectionRow = sheet.addRow([]);
+    sectionRow.height = 18;
+
+    // Static columns span → merge into one labelled cell
+    const staticLabels = [
+      'Customer Number', 'Customer Name', 'Phone', 'Customer Type',
+      'Province', 'District', 'Village',
+      'Mono-phase Meters', '3-phase Meters', 'Transformers (100kVA)',
+      'Submitted At',
+    ];
+    for (let i = 0; i < STATIC_COUNT; i++) {
+      const cell = sectionRow.getCell(i + 1);
+      cell.value = i === 0 ? 'ຂໍ້ມູນຜູ້ຊົມໃຊ້ ແລະ ສະຖານທີ່' : null;
+      cell.style = staticHeaderStyle;
+    }
+    if (STATIC_COUNT > 1) {
+      sheet.mergeCells(1, 1, 1, STATIC_COUNT);
+    }
+
+    // Section question spans
+    let colCursor = STATIC_COUNT + 1;
+    sections.forEach((section, sIdx) => {
+      const qCount = section.questions.length;
+      if (qCount === 0) return;
+
+      const startCol = colCursor;
+      const endCol = colCursor + qCount - 1;
+
+      for (let c = startCol; c <= endCol; c++) {
+        const cell = sectionRow.getCell(c);
+        cell.value = c === startCol ? section.title : null;
+        cell.style = sectionHeaderStyle(sIdx);
+      }
+
+      if (qCount > 1) {
+        sheet.mergeCells(1, startCol, 1, endCol);
+      }
+
+      colCursor += qCount;
     });
 
-    // ── Fetch & write data in batches ──────────────────────────────────────
+    // ── ROW 2: Column headers ─────────────────────────────────────────────
+    const headerRow = sheet.addRow([]);
+    headerRow.height = 38;
+
+    staticLabels.forEach((label, i) => {
+      const cell = headerRow.getCell(i + 1);
+      cell.value = label;
+      cell.style = staticHeaderStyle;
+    });
+
+    colCursor = STATIC_COUNT + 1;
+    sections.forEach((section, sIdx) => {
+      section.questions.forEach((q) => {
+        const cell = headerRow.getCell(colCursor);
+        cell.value = q.text;
+        cell.style = questionHeaderStyle(sIdx);
+        colCursor++;
+      });
+    });
+
+    // ── Fetch & write data rows in batches ────────────────────────────────
     let processedCount = 0;
     let lastId: string | undefined = undefined;
     let totalMono = 0;
@@ -142,7 +243,6 @@ export class ExportService {
       if (responses.length === 0) break;
 
       for (const sr of responses) {
-        // Build a map of questionId → formatted answer value
         const answerMap: Record<string, string | number> = {};
         for (const ans of sr.answers) {
           let val: string | number = '';
@@ -156,7 +256,6 @@ export class ExportService {
           answerMap[ans.question.id] = val;
         }
 
-        // Build row object: static fields + one key per question
         const rowData: Record<string, any> = {
           customerNumber: sr.customerNumber,
           customerName: sr.customerName,
@@ -186,7 +285,7 @@ export class ExportService {
       lastId = responses[responses.length - 1].id;
     }
 
-    // ── Summary row ────────────────────────────────────────────────────────
+    // ── Summary row ───────────────────────────────────────────────────────
     const summaryRow = sheet.addRow({
       customerName: 'TOTAL SUMMARY',
       monoPhase: totalMono,
@@ -200,16 +299,12 @@ export class ExportService {
       fgColor: { argb: 'FFEFEFEF' },
     };
 
-    // ── Write buffer & respond ─────────────────────────────────────────────
+    // ── Stream to response ────────────────────────────────────────────────
     const arrayBuffer = await workbook.xlsx.writeBuffer();
     const nodeBuffer = Buffer.from(arrayBuffer);
-
     const filename = `EDL_Satisfaction_Export_${new Date().toISOString().split('T')[0]}.xlsx`;
 
-    res.setHeader(
-      'Content-Type',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    );
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.setHeader('Content-Length', nodeBuffer.length);
     res.status(200).send(nodeBuffer);

@@ -38,7 +38,10 @@ export class CustomerTypesService {
   async findAll() {
     try {
       return await this.prisma.customerType.findMany({
-        orderBy: { name: 'asc' },
+        orderBy: [
+          { order: 'asc' },
+          { name: 'asc' }
+        ],
       });
     } catch (error) {
       this.logger.error('Failed to fetch customer types:', error.message);
