@@ -43,11 +43,6 @@ export class SurveyResponsesService {
       });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        if (error.code === 'P2002') {
-          throw new BadRequestException(
-            'This customer number has already submitted a response for this survey in this province.',
-          );
-        }
         throw new BadRequestException(`Failed to create survey response: ${error.message}`);
       }
       throw error;
@@ -221,11 +216,6 @@ export class SurveyResponsesService {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2025') {
           throw new BadRequestException(`Survey response with ID ${id} not found`);
-        }
-        if (error.code === 'P2002') {
-          throw new BadRequestException(
-            'This customer number already has a response for this survey in this province.',
-          );
         }
       }
       throw error;

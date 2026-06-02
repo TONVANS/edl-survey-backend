@@ -45,8 +45,8 @@ export class CreateSurveyResponseDto {
   surveyId: string;
 
   @IsInt()
-  @IsNotEmpty()
-  customerNumber: number;
+  @IsOptional()
+  customerNumber?: number;
 
   @IsString()
   @IsNotEmpty()

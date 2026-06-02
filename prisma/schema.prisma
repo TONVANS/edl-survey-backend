@@ -217,7 +217,7 @@ model SurveyResponse {
   survey   Survey @relation(fields: [surveyId], references: [id], onDelete: Cascade)
 
   // ຂໍ້ມູນຜູ້ຕອບ (ຜູ້ໃຊ້ທົ່ວໄປບໍ່ມີ User Account ຈຶ່ງເກັບເປັນ Text)
-  customerNumber      Int // ເລກຜູ້ຊົມໃຊ້ໄຟຟ້າ
+  customerNumber      Int? // ເລກຜູ້ຊົມໃຊ້ໄຟຟ້າ
   customerName        String // ຊື່ຜູ້ຕອບ
   customerPhoneNumber String? // ເບີໂທ (Optional)
   customerTypeId      String
@@ -241,7 +241,6 @@ model SurveyResponse {
   answers     Answer[]
   submittedAt DateTime @default(now())
 
-  @@unique([surveyId, provinceId, customerNumber])
   @@index([provinceId])
   @@index([districtId])
   @@index([villageId])
