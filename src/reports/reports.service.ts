@@ -447,14 +447,24 @@ export class ReportsService {
       ratingSummaryMap.set(customerTypeId, summary);
     });
 
+    const totalResponsesCount = responseStats.reduce(
+      (acc: number, s: any) => acc + (s?._count?.id || 0),
+      0,
+    );
+
     const results: CustomerTypeItemDto[] = customerTypes.map((ct) => {
       const s: any = statsMap.get(ct.id);
       const rSummary = ratingSummaryMap.get(ct.id);
+      const totalResponses = s?._count?.id || 0;
+      const percentage = totalResponsesCount > 0
+        ? Number(((totalResponses / totalResponsesCount) * 100).toFixed(2))
+        : 0;
       
       return {
         customerTypeId: ct.id,
         customerTypeName: ct.name,
-        totalResponses: s?._count?.id || 0,
+        totalResponses,
+        percentage,
         averageRating: rSummary?.count ? Number((rSummary.sum / rSummary.count).toFixed(2)) : 0,
         totalMonoPhaseMeter: s?._sum?.monoPhaseMeterCount || 0,
         totalThreePhaseMeter: s?._sum?.threePhaseMeterCount || 0,

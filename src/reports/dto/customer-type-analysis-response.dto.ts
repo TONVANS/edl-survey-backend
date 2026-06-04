@@ -11,6 +11,9 @@ export class CustomerTypeItemDto {
   @ApiProperty({ description: "Total number of responses for this customer type" })
   totalResponses: number;
 
+  @ApiProperty({ description: "Percentage of total responses this customer type represents", example: 25.5 })
+  percentage: number;
+
   @ApiProperty({ description: "Average rating for this customer type" })
   averageRating: number;
 
