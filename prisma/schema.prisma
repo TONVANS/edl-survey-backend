@@ -224,9 +224,9 @@ model SurveyResponse {
   customerType        CustomerType @relation(fields: [customerTypeId], references: [id])
 
   // ເພີ່ມຂໍ້ມູນຈຳນວນໝໍ້ແປງ ແລະ ໝໍ້ໄຟ
-  monoPhaseMeterCount  Int @default(0) // Mono 1-Phase 2-Wire
-  threePhaseMeterCount Int @default(0) // AT 3-Phase 4-Wire
-  transformer100kVA    Int @default(0) // 100 kVA Transformers
+  monoPhaseMeterCount  Int                 @default(0) // Mono 1-Phase 2-Wire
+  threePhaseMeterCount Int                 @default(0) // AT 3-Phase 4-Wire
+  transformers         TransformerDetail[] // Dynamic transformers
 
   // ສະຖານທີ່ (ຜູກ relation ເພື່ອຄວາມງ່າຍໃນການ Filter Dashboard ສຳລັບແຕ່ລະ Role)
   provinceId String
@@ -246,6 +246,31 @@ model SurveyResponse {
   @@index([villageId])
   @@index([customerTypeId])
   @@index([submittedAt])
+}
+
+model TransformerSize {
+  id      String @id @default(uuid())
+  sizeKVA Int    @unique
+  order   Int?
+
+  transformerDetails TransformerDetail[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TransformerDetail {
+  id               String         @id @default(uuid())
+  surveyResponseId String
+  surveyResponse   SurveyResponse @relation(fields: [surveyResponseId], references: [id], onDelete: Cascade)
+
+  transformerSizeId String
+  transformerSize   TransformerSize @relation(fields: [transformerSizeId], references: [id])
+
+  quantity Int
+
+  @@index([surveyResponseId])
+  @@index([transformerSizeId])
 }
 
 model Answer {

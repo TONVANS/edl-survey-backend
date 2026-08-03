@@ -396,7 +396,7 @@ export class ReportsService {
     }
 
     const customerTypes = await this.prisma.customerType.findMany({
-      orderBy: { name: 'asc' },
+      orderBy: [{ order: 'asc' }, { name: 'asc' }],
     });
 
     const responseStats = await (this.prisma.surveyResponse as any).groupBy({
@@ -406,9 +406,22 @@ export class ReportsService {
       _sum: {
         monoPhaseMeterCount: true,
         threePhaseMeterCount: true,
-        transformer100kVA: true,
       },
     });
+
+    const transformerDetails = await this.prisma.transformerDetail.findMany({
+      where: { surveyResponse: where },
+      select: {
+        quantity: true,
+        surveyResponse: { select: { customerTypeId: true } },
+      },
+    });
+
+    const transformerMap = new Map<string, number>();
+    for (const t of transformerDetails) {
+      const cId = t.surveyResponse.customerTypeId;
+      transformerMap.set(cId, (transformerMap.get(cId) || 0) + t.quantity);
+    }
 
     const ratingAnswers = await this.prisma.answer.findMany({
       where: {
@@ -468,12 +481,12 @@ export class ReportsService {
         averageRating: rSummary?.count ? Number((rSummary.sum / rSummary.count).toFixed(2)) : 0,
         totalMonoPhaseMeter: s?._sum?.monoPhaseMeterCount || 0,
         totalThreePhaseMeter: s?._sum?.threePhaseMeterCount || 0,
-        totalTransformer100kVA: s?._sum?.transformer100kVA || 0,
+        totalTransformers: transformerMap.get(ct.id) || 0,
         ratingDistribution: distributionMap.get(ct.id) || { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 },
       };
     });
 
-    results.sort((a, b) => b.totalResponses - a.totalResponses);
+    // results.sort((a, b) => b.totalResponses - a.totalResponses);
 
     return {
       customerTypes: results,

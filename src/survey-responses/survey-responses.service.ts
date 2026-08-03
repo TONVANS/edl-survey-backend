@@ -11,13 +11,18 @@ export class SurveyResponsesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(createSurveyResponseDto: CreateSurveyResponseDto) {
-    const { answers, customerType, ...responseData } = createSurveyResponseDto;
+    const { answers, customerType, transformers, ...responseData } = createSurveyResponseDto;
 
     try {
       return await this.prisma.surveyResponse.create({
         data: {
           ...responseData,
           customerTypeId: customerType,
+          ...(transformers && transformers.length > 0 && {
+            transformers: {
+              create: mergeTransformers(transformers),
+            },
+          }),
           answers: {
             create: answers.map((answer) => ({
               questionId: answer.questionId,
@@ -168,9 +173,13 @@ export class SurveyResponsesService {
             selectedOptions: { include: { option: { select: { text: true } } } },
           },
         },
+        transformers: {
+          include: {
+            transformerSize: { select: { sizeKVA: true } },
+          },
+        },
       },
     });
-
     if (!response) {
       throw new BadRequestException(`Survey response with ID ${id} not found`);
     }
@@ -197,6 +206,7 @@ export class SurveyResponsesService {
       provinceId,
       districtId,
       villageId,
+      transformers,
       ...responseData
     } = updateSurveyResponseDto;
 
@@ -210,6 +220,12 @@ export class SurveyResponsesService {
           ...(provinceId && { province: { connect: { id: provinceId } } }),
           ...(districtId && { district: { connect: { id: districtId } } }),
           ...(villageId && { village: { connect: { id: villageId } } }),
+          ...(transformers && {
+            transformers: {
+              deleteMany: {},
+              create: mergeTransformers(transformers),
+            },
+          }),
         },
       });
     } catch (error) {
@@ -234,4 +250,13 @@ export class SurveyResponsesService {
       throw error;
     }
   }
+}
+
+function mergeTransformers(transformers?: { transformerSizeId: string; quantity: number }[]) {
+  if (!transformers || transformers.length === 0) return [];
+  const map = new Map<string, number>();
+  for (const t of transformers) {
+    map.set(t.transformerSizeId, (map.get(t.transformerSizeId) || 0) + t.quantity);
+  }
+  return Array.from(map.entries()).map(([transformerSizeId, quantity]) => ({ transformerSizeId, quantity }));
 }

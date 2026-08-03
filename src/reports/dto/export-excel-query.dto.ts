@@ -27,4 +27,9 @@ export class ExportExcelQueryDto {
   @IsOptional()
   @IsUUID()
   districtId?: string;
+
+  @ApiPropertyOptional({ description: "Filter by customer type ID", example: "uuid" })
+  @IsOptional()
+  @IsUUID()
+  customerTypeId?: string;
 }

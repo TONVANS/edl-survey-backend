@@ -17,6 +17,16 @@ class AnswerOptionDto {
   optionId: string;
 }
 
+export class CreateTransformerDetailDto {
+  @IsUUID()
+  @IsNotEmpty()
+  transformerSizeId: string;
+
+  @IsInt()
+  @Min(1)
+  quantity: number;
+}
+
 export class CreateAnswerDto {
   @IsUUID()
   @IsNotEmpty()
@@ -70,10 +80,11 @@ export class CreateSurveyResponseDto {
   @IsOptional()
   threePhaseMeterCount?: number;
 
-  @IsInt()
-  @Min(0)
+  @IsArray()
   @IsOptional()
-  transformer100kVA?: number;
+  @ValidateNested({ each: true })
+  @Type(() => CreateTransformerDetailDto)
+  transformers?: CreateTransformerDetailDto[];
 
   @IsUUID()
   @IsNotEmpty()

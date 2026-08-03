@@ -19,7 +19,7 @@ export class ExportService {
     query: ExportExcelQueryDto,
     res: Response,
   ): Promise<void> {
-    const { surveyId, startDate, endDate, provinceId, districtId } = query;
+    const { surveyId, startDate, endDate, provinceId, districtId, customerTypeId } = query;
 
     const where: Prisma.SurveyResponseWhereInput = {};
     if (surveyId) where.surveyId = surveyId;
@@ -34,6 +34,7 @@ export class ExportService {
     }
 
     if (districtId) where.districtId = districtId;
+    if (customerTypeId) where.customerTypeId = customerTypeId;
 
     if (startDate || endDate) {
       where.submittedAt = {};
@@ -237,6 +238,9 @@ export class ExportService {
               },
             },
           },
+          transformers: {
+            include: { transformerSize: { select: { sizeKVA: true } } },
+          },
         },
       });
 
@@ -256,6 +260,10 @@ export class ExportService {
           answerMap[ans.question.id] = val;
         }
 
+        const transformersStr = sr.transformers?.length 
+          ? sr.transformers.map((t: any) => `${t.transformerSize?.sizeKVA}kVA(x${t.quantity})`).join(', ')
+          : '';
+
         const rowData: Record<string, any> = {
           customerNumber: sr.customerNumber,
           customerName: sr.customerName,
@@ -266,7 +274,7 @@ export class ExportService {
           village: sr.village?.name ?? '',
           monoPhase: sr.monoPhaseMeterCount,
           threePhase: sr.threePhaseMeterCount,
-          transformer: sr.transformer100kVA,
+          transformer: transformersStr,
           submittedAt: sr.submittedAt.toISOString(),
         };
 
@@ -278,7 +286,7 @@ export class ExportService {
 
         totalMono += sr.monoPhaseMeterCount;
         totalThree += sr.threePhaseMeterCount;
-        totalTrans += sr.transformer100kVA;
+        totalTrans += sr.transformers?.reduce((acc: number, t: any) => acc + t.quantity, 0) || 0;
       }
 
       processedCount += responses.length;

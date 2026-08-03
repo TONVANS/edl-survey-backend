@@ -51,3 +51,7 @@ village.json
 
 docker-compose.yml
 Dockerfile
+.vscode
+
+# Frontend transformer update guide
+frontend-transformer-update-guide.md

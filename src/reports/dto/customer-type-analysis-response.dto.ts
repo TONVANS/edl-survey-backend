@@ -23,8 +23,8 @@ export class CustomerTypeItemDto {
   @ApiProperty({ description: "Total three-phase meters" })
   totalThreePhaseMeter: number;
 
-  @ApiProperty({ description: "Total 100kVA transformers" })
-  totalTransformer100kVA: number;
+  @ApiProperty({ description: "Total transformers quantity" })
+  totalTransformers: number;
 
   @ApiProperty({
     description: "Rating distribution (1-5 stars)",

@@ -24,6 +24,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
+import { TransformerSizesModule } from './transformer-sizes/transformer-sizes.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
     CustomerTypesModule,
     ReportsModule,
     DashboardModule,
+    TransformerSizesModule,
   ],
   controllers: [AppController],
   providers: [
