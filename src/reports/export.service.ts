@@ -1,6 +1,6 @@
 // src/reports/export.service.ts — updated with section grouping headers
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { Prisma, Role, QuestionType } from '@prisma/client';
+import { Prisma, Role, QuestionType, MeterType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface';
 import { ExportExcelQueryDto } from './dto/export-excel-query.dto';
@@ -238,6 +238,9 @@ export class ExportService {
               },
             },
           },
+          meters: {
+            include: { meterSize: { select: { type: true, amps: true } } },
+          },
           transformers: {
             include: { transformerSize: { select: { sizeKVA: true } } },
           },
@@ -264,6 +267,14 @@ export class ExportService {
           ? sr.transformers.map((t: any) => `${t.transformerSize?.sizeKVA}kVA(x${t.quantity})`).join(', ')
           : '';
 
+        const monoMetersCount = sr.meters
+          ?.filter((m: any) => m.meterSize?.type === MeterType.MONO_PHASE)
+          .reduce((acc: number, m: any) => acc + m.quantity, 0) || 0;
+
+        const threeMetersCount = sr.meters
+          ?.filter((m: any) => m.meterSize?.type === MeterType.THREE_PHASE)
+          .reduce((acc: number, m: any) => acc + m.quantity, 0) || 0;
+
         const rowData: Record<string, any> = {
           customerNumber: sr.customerNumber,
           customerName: sr.customerName,
@@ -272,8 +283,8 @@ export class ExportService {
           province: sr.province?.name ?? '',
           district: sr.district?.name ?? '',
           village: sr.village?.name ?? '',
-          monoPhase: sr.monoPhaseMeterCount,
-          threePhase: sr.threePhaseMeterCount,
+          monoPhase: monoMetersCount,
+          threePhase: threeMetersCount,
           transformer: transformersStr,
           submittedAt: sr.submittedAt.toISOString(),
         };
@@ -284,8 +295,8 @@ export class ExportService {
 
         sheet.addRow(rowData);
 
-        totalMono += sr.monoPhaseMeterCount;
-        totalThree += sr.threePhaseMeterCount;
+        totalMono += monoMetersCount;
+        totalThree += threeMetersCount;
         totalTrans += sr.transformers?.reduce((acc: number, t: any) => acc + t.quantity, 0) || 0;
       }
 

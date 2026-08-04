@@ -19,6 +19,8 @@ import { QuestionDetailQueryDto } from './dto/question-detail-query.dto';
 import { QuestionDetailResponseDto } from './dto/question-detail-response.dto';
 import { SectionGraphQueryDto } from './dto/section-graph-query.dto';
 import { SectionGraphResponseDto } from './dto/section-graph-response.dto';
+import { MeterAnalysisQueryDto } from './dto/meter-analysis-query.dto';
+import { MeterAnalysisResponseDto } from './dto/meter-analysis-response.dto';
 import { ExportExcelQueryDto } from './dto/export-excel-query.dto';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -131,6 +133,25 @@ export class ReportsController {
     @Query() query: SectionGraphQueryDto,
   ): Promise<SectionGraphResponseDto> {
     return this.reportsService.getSectionGraphData(user, query);
+  }
+
+  @Get('meter-analysis')
+  @Roles(Role.SUPER_ADMIN, Role.REGION_ADMIN, Role.PROVINCE_ADMIN)
+  @ApiOperation({
+    summary: 'Get Meter Analysis Report',
+    description:
+      'Aggregates meter counts grouped by MeterType (MONO_PHASE vs THREE_PHASE) and specific MeterSize (Amps rating). Scoped by user role and geographic/date filters.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'The meter analysis report was successfully compiled.',
+    type: MeterAnalysisResponseDto,
+  })
+  async getMeterAnalysis(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: MeterAnalysisQueryDto,
+  ): Promise<MeterAnalysisResponseDto> {
+    return this.reportsService.getMeterAnalysis(user, query);
   }
 
   @Get('export-excel')

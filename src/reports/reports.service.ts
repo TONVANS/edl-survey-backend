@@ -1,6 +1,6 @@
 // src/reports/reports.service.ts
 import { Injectable, ForbiddenException, BadRequestException } from "@nestjs/common";
-import { Prisma, Role, QuestionType } from "@prisma/client";
+import { Prisma, Role, QuestionType, MeterType } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { OverallSummaryQueryDto } from "./dto/overall-summary-query.dto";
 import { AuthenticatedUser } from "../auth/interfaces/authenticated-user.interface";
@@ -20,6 +20,12 @@ import { QuestionDetailQueryDto } from "./dto/question-detail-query.dto";
 import { QuestionDetailResponseDto, QuestionDetailSectionDto, QuestionDetailItemDto } from "./dto/question-detail-response.dto";
 import { SectionGraphQueryDto } from "./dto/section-graph-query.dto";
 import { SectionGraphResponseDto, SectionGraphItemDto } from "./dto/section-graph-response.dto";
+import { MeterAnalysisQueryDto } from './dto/meter-analysis-query.dto';
+import {
+  MeterAnalysisResponseDto,
+  MeterTypeSummaryDto,
+  MeterSizeSummaryDto,
+} from './dto/meter-analysis-response.dto';
 
 @Injectable()
 export class ReportsService {
@@ -399,15 +405,31 @@ export class ReportsService {
       orderBy: [{ order: 'asc' }, { name: 'asc' }],
     });
 
-    const responseStats = await (this.prisma.surveyResponse as any).groupBy({
+    const responseStats = await this.prisma.surveyResponse.groupBy({
       by: ['customerTypeId'],
       where,
       _count: { id: true },
-      _sum: {
-        monoPhaseMeterCount: true,
-        threePhaseMeterCount: true,
+    });
+
+    const meterDetails = await this.prisma.meterDetail.findMany({
+      where: { surveyResponse: where },
+      select: {
+        quantity: true,
+        meterSize: { select: { type: true } },
+        surveyResponse: { select: { customerTypeId: true } },
       },
     });
+
+    const monoMeterMap = new Map<string, number>();
+    const threeMeterMap = new Map<string, number>();
+    for (const m of meterDetails) {
+      const cId = m.surveyResponse.customerTypeId;
+      if (m.meterSize?.type === MeterType.MONO_PHASE) {
+        monoMeterMap.set(cId, (monoMeterMap.get(cId) || 0) + m.quantity);
+      } else if (m.meterSize?.type === MeterType.THREE_PHASE) {
+        threeMeterMap.set(cId, (threeMeterMap.get(cId) || 0) + m.quantity);
+      }
+    }
 
     const transformerDetails = await this.prisma.transformerDetail.findMany({
       where: { surveyResponse: where },
@@ -479,8 +501,8 @@ export class ReportsService {
         totalResponses,
         percentage,
         averageRating: rSummary?.count ? Number((rSummary.sum / rSummary.count).toFixed(2)) : 0,
-        totalMonoPhaseMeter: s?._sum?.monoPhaseMeterCount || 0,
-        totalThreePhaseMeter: s?._sum?.threePhaseMeterCount || 0,
+        totalMonoPhaseMeter: monoMeterMap.get(ct.id) || 0,
+        totalThreePhaseMeter: threeMeterMap.get(ct.id) || 0,
         totalTransformers: transformerMap.get(ct.id) || 0,
         ratingDistribution: distributionMap.get(ct.id) || { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 },
       };
@@ -490,6 +512,97 @@ export class ReportsService {
 
     return {
       customerTypes: results,
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
+  async getMeterAnalysis(
+    user: AuthenticatedUser,
+    query: MeterAnalysisQueryDto,
+  ): Promise<MeterAnalysisResponseDto> {
+    const { surveyId, provinceId, districtId, villageId, startDate, endDate } = query;
+
+    const where: Prisma.SurveyResponseWhereInput = {};
+    if (surveyId) where.surveyId = surveyId;
+
+    if (user.role === Role.SUPER_ADMIN) {
+      if (provinceId) where.provinceId = provinceId;
+      if (districtId) where.districtId = districtId;
+      if (villageId) where.villageId = villageId;
+    } else if (user.role === Role.REGION_ADMIN) {
+      where.province = { regionId: user.regionId };
+      if (provinceId) where.provinceId = provinceId;
+      if (districtId) where.districtId = districtId;
+      if (villageId) where.villageId = villageId;
+    } else if (user.role === Role.PROVINCE_ADMIN) {
+      where.provinceId = user.provinceId;
+      if (districtId) where.districtId = districtId;
+      if (villageId) where.villageId = villageId;
+    }
+
+    if (startDate || endDate) {
+      where.submittedAt = {};
+      if (startDate) where.submittedAt.gte = new Date(startDate);
+      if (endDate) where.submittedAt.lte = new Date(endDate);
+    }
+
+    const meterDetails = await this.prisma.meterDetail.findMany({
+      where: { surveyResponse: where },
+      include: {
+        meterSize: true,
+      },
+    });
+
+    const typeMap = new Map<MeterType, number>();
+    typeMap.set(MeterType.MONO_PHASE, 0);
+    typeMap.set(MeterType.THREE_PHASE, 0);
+
+    const sizeMap = new Map<string, { meterSize: any; totalQuantity: number }>();
+
+    let totalMeters = 0;
+
+    for (const detail of meterDetails) {
+      const qty = detail.quantity;
+      totalMeters += qty;
+
+      const currentTypeQty = typeMap.get(detail.meterSize.type) || 0;
+      typeMap.set(detail.meterSize.type, currentTypeQty + qty);
+
+      const existing = sizeMap.get(detail.meterSizeId);
+      if (existing) {
+        existing.totalQuantity += qty;
+      } else {
+        sizeMap.set(detail.meterSizeId, {
+          meterSize: detail.meterSize,
+          totalQuantity: qty,
+        });
+      }
+    }
+
+    const byType: MeterTypeSummaryDto[] = Array.from(typeMap.entries()).map(
+      ([type, totalQuantity]) => ({
+        type,
+        totalQuantity,
+        percentage: totalMeters > 0 ? Number(((totalQuantity / totalMeters) * 100).toFixed(2)) : 0,
+      }),
+    );
+
+    const bySize: MeterSizeSummaryDto[] = Array.from(sizeMap.values())
+      .map(({ meterSize, totalQuantity }) => ({
+        meterSizeId: meterSize.id,
+        type: meterSize.type,
+        amps: meterSize.amps,
+        description: meterSize.description || undefined,
+        order: meterSize.order || undefined,
+        totalQuantity,
+        percentage: totalMeters > 0 ? Number(((totalQuantity / totalMeters) * 100).toFixed(2)) : 0,
+      }))
+      .sort((a, b) => (a.order ?? 999) - (b.order ?? 999) || b.totalQuantity - a.totalQuantity);
+
+    return {
+      totalMeters,
+      byType,
+      bySize,
       generatedAt: new Date().toISOString(),
     };
   }

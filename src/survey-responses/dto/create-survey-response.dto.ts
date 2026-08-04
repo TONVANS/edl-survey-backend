@@ -17,6 +17,16 @@ class AnswerOptionDto {
   optionId: string;
 }
 
+export class CreateMeterDetailDto {
+  @IsUUID()
+  @IsNotEmpty()
+  meterSizeId: string;
+
+  @IsInt()
+  @Min(1)
+  quantity: number;
+}
+
 export class CreateTransformerDetailDto {
   @IsUUID()
   @IsNotEmpty()
@@ -70,15 +80,11 @@ export class CreateSurveyResponseDto {
   @IsNotEmpty()
   customerType: string;
 
-  @IsInt()
-  @Min(0)
+  @IsArray()
   @IsOptional()
-  monoPhaseMeterCount?: number;
-
-  @IsInt()
-  @Min(0)
-  @IsOptional()
-  threePhaseMeterCount?: number;
+  @ValidateNested({ each: true })
+  @Type(() => CreateMeterDetailDto)
+  meters?: CreateMeterDetailDto[];
 
   @IsArray()
   @IsOptional()

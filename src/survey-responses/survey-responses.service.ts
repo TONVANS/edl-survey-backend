@@ -11,13 +11,18 @@ export class SurveyResponsesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(createSurveyResponseDto: CreateSurveyResponseDto) {
-    const { answers, customerType, transformers, ...responseData } = createSurveyResponseDto;
+    const { answers, customerType, meters, transformers, ...responseData } = createSurveyResponseDto;
 
     try {
       return await this.prisma.surveyResponse.create({
         data: {
           ...responseData,
           customerTypeId: customerType,
+          ...(meters && meters.length > 0 && {
+            meters: {
+              create: mergeMeters(meters),
+            },
+          }),
           ...(transformers && transformers.length > 0 && {
             transformers: {
               create: mergeTransformers(transformers),
@@ -42,6 +47,16 @@ export class SurveyResponsesService {
           answers: {
             include: {
               selectedOptions: true,
+            },
+          },
+          meters: {
+            include: {
+              meterSize: true,
+            },
+          },
+          transformers: {
+            include: {
+              transformerSize: true,
             },
           },
         },
@@ -134,6 +149,16 @@ export class SurveyResponsesService {
             district: { select: { name: true } },
             village: { select: { name: true } },
             customerType: { select: { name: true } },
+            meters: {
+              include: {
+                meterSize: { select: { type: true, amps: true } },
+              },
+            },
+            transformers: {
+              include: {
+                transformerSize: { select: { sizeKVA: true } },
+              },
+            },
             _count: { select: { answers: true } },
           },
           skip,
@@ -173,6 +198,11 @@ export class SurveyResponsesService {
             selectedOptions: { include: { option: { select: { text: true } } } },
           },
         },
+        meters: {
+          include: {
+            meterSize: { select: { type: true, amps: true, description: true } },
+          },
+        },
         transformers: {
           include: {
             transformerSize: { select: { sizeKVA: true } },
@@ -206,6 +236,7 @@ export class SurveyResponsesService {
       provinceId,
       districtId,
       villageId,
+      meters,
       transformers,
       ...responseData
     } = updateSurveyResponseDto;
@@ -220,6 +251,12 @@ export class SurveyResponsesService {
           ...(provinceId && { province: { connect: { id: provinceId } } }),
           ...(districtId && { district: { connect: { id: districtId } } }),
           ...(villageId && { village: { connect: { id: villageId } } }),
+          ...(meters && {
+            meters: {
+              deleteMany: {},
+              create: mergeMeters(meters),
+            },
+          }),
           ...(transformers && {
             transformers: {
               deleteMany: {},
@@ -250,6 +287,15 @@ export class SurveyResponsesService {
       throw error;
     }
   }
+}
+
+function mergeMeters(meters?: { meterSizeId: string; quantity: number }[]) {
+  if (!meters || meters.length === 0) return [];
+  const map = new Map<string, number>();
+  for (const m of meters) {
+    map.set(m.meterSizeId, (map.get(m.meterSizeId) || 0) + m.quantity);
+  }
+  return Array.from(map.entries()).map(([meterSizeId, quantity]) => ({ meterSizeId, quantity }));
 }
 
 function mergeTransformers(transformers?: { transformerSizeId: string; quantity: number }[]) {

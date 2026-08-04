@@ -31,6 +31,11 @@ enum QuestionType {
   MULTIPLE_CHOICE // ເລືອກໄດ້ຫຼາຍຂໍ້ (Checkbox)
 }
 
+enum MeterType {
+  MONO_PHASE
+  THREE_PHASE
+}
+
 // ປະເພດຜູ້ຊົມໃຊ້ໄຟຟ້າ (ສາມາດປັບປ່ຽນ ຫຼື ໃຊ້ເປັນ Table ແຍກກໍໄດ້)
 model CustomerType {
   id          String           @id @default(uuid())
@@ -224,9 +229,8 @@ model SurveyResponse {
   customerType        CustomerType @relation(fields: [customerTypeId], references: [id])
 
   // ເພີ່ມຂໍ້ມູນຈຳນວນໝໍ້ແປງ ແລະ ໝໍ້ໄຟ
-  monoPhaseMeterCount  Int                 @default(0) // Mono 1-Phase 2-Wire
-  threePhaseMeterCount Int                 @default(0) // AT 3-Phase 4-Wire
-  transformers         TransformerDetail[] // Dynamic transformers
+  meters       MeterDetail[]       // Dynamic meters
+  transformers TransformerDetail[] // Dynamic transformers
 
   // ສະຖານທີ່ (ຜູກ relation ເພື່ອຄວາມງ່າຍໃນການ Filter Dashboard ສຳລັບແຕ່ລະ Role)
   provinceId String
@@ -271,6 +275,35 @@ model TransformerDetail {
 
   @@index([surveyResponseId])
   @@index([transformerSizeId])
+}
+
+model MeterSize {
+  id          String    @id @default(uuid())
+  type        MeterType
+  amps        String
+  description String?
+  order       Int?
+
+  meterDetails MeterDetail[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([type, amps])
+}
+
+model MeterDetail {
+  id               String         @id @default(uuid())
+  surveyResponseId String
+  surveyResponse   SurveyResponse @relation(fields: [surveyResponseId], references: [id], onDelete: Cascade)
+
+  meterSizeId String
+  meterSize   MeterSize @relation(fields: [meterSizeId], references: [id])
+
+  quantity Int
+
+  @@index([surveyResponseId])
+  @@index([meterSizeId])
 }
 
 model Answer {
